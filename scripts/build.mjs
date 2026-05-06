@@ -422,7 +422,6 @@ function deckTemplate(doc, sectionsHtml) {
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;600&display=swap">
-<link rel="stylesheet" href="${base}assets/deck.css">
 <style>
   :root { --paper: #fbf8f0; --ink: #25221e; --accent: #8b3f2f; --muted: #6d655c; }
   body { background: var(--paper); }
@@ -439,6 +438,7 @@ function deckTemplate(doc, sectionsHtml) {
   .reveal .controls { color: var(--accent); }
   .missing-link { color: var(--muted); text-decoration: underline dotted; }
 </style>
+<link rel="stylesheet" href="${base}assets/deck.css">
 </head>
 <body>
 <div class="reveal">
