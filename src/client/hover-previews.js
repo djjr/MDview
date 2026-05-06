@@ -42,6 +42,44 @@ document.querySelectorAll('a[data-preview-slug]').forEach((link) => {
   link.addEventListener('blur', hide);
 });
 
+// Nav resizer: drag the divider to resize the sidebar.
+(function () {
+  const shell = document.querySelector('.site-shell');
+  const resizer = document.querySelector('.nav-resizer');
+  if (!shell || !resizer) return;
+
+  const MIN = 120;
+  const MAX = 480;
+
+  const saved = localStorage.getItem('mdview-nav-width');
+  if (saved) shell.style.gridTemplateColumns = `${saved}px 4px 1fr`;
+
+  resizer.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = shell.querySelector('.site-nav').getBoundingClientRect().width;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    function onMove(e) {
+      const width = Math.max(MIN, Math.min(MAX, startWidth + e.clientX - startX));
+      shell.style.gridTemplateColumns = `${width}px 4px 1fr`;
+    }
+
+    function onUp() {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      const width = Math.round(shell.querySelector('.site-nav').getBoundingClientRect().width);
+      try { localStorage.setItem('mdview-nav-width', width); } catch {}
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}());
+
 // Nav: restore persisted open/closed state, persist changes, highlight active page.
 (function () {
   const groups = document.querySelectorAll('details.nav-group[id]');

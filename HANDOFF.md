@@ -23,9 +23,11 @@ MDview/
 │       └── tagged-note.md
 ├── dist/                  ← Generated output (git-ignored; rebuilt each run)
 ├── src/
-│   ├── styles/site.css    ← All site CSS (copied to dist/assets/ at build)
+│   ├── styles/
+│   │   ├── site.css       ← All site CSS (copied to dist/assets/ at build)
+│   │   └── deck.css       ← Custom overrides for reveal.js decks (copied to dist/assets/)
 │   └── client/
-│       └── hover-previews.js  ← Hover card JS (copied to dist/assets/)
+│       └── hover-previews.js  ← Hover card, nav state, and resizer JS (copied to dist/assets/)
 ├── public/
 │   └── favicon.svg        ← Copied to dist/ at build
 ├── scripts/
@@ -122,6 +124,32 @@ Math is rendered to static HTML at **build time** by KaTeX running in Node. No c
 ```
 Images are wrapped in `<figure>`. If alt text is present it renders as a `<figcaption>` below the image, centered. If alt text is empty, the figure renders with no caption. Relative image paths are **not** supported — images must be hosted externally (the current convention is `https://innoeduvation.org/images/`). There is no local asset copying step.
 
+**Slide decks** — add `layout: deck` to a document's frontmatter to render it as a reveal.js presentation instead of a regular page:
+```markdown
+---
+title: My Deck
+layout: deck
+tags: [slides]
+---
+
+# First Slide
+
+Content here
+
+---
+
+# Second Slide
+
+More content
+
+--
+
+## Vertical Slide
+
+Nested under Second Slide
+```
+`---` on its own line separates horizontal slides. `--` on its own line creates a vertical slide within the current horizontal section. The build generates two files per deck: `dist/<slug>/deck.html` (standalone reveal.js page, shareable/presentable directly) and `dist/<slug>/index.html` (MDview wrapper with an iframe and an "Open fullscreen ↗" link). Deck documents appear in a separate **Decks** section in the sidebar nav, not in Documents. Custom slide CSS goes in `src/styles/deck.css` — it loads after the built-in palette rules so it wins any conflicts.
+
 **Standard Markdown** is handled by the `marked` library (GFM mode), so ordered and unordered lists, nested lists, tables, blockquotes, fenced code blocks, bold, italic, strikethrough, and inline code all work.
 
 ---
@@ -179,7 +207,9 @@ Typography is Tufte-inspired: body text in Georgia/serif, UI elements in Inter/s
 
 **Images** render inside `<figure>` elements. `article figure` is centered with `text-align: center`; `article figure img` is responsive (`max-width: 100%`, `height: auto`) with a `0.5rem` border radius; `article figcaption` is muted small text below the image.
 
-**Collapsible nav** — the Documents and Tags sections in the sidebar are `<details>/<summary>` elements with class `nav-group`. Documents defaults to open; Tags defaults to closed. A CSS `::after` arrow on `summary` rotates 90° when open. The active page link receives class `active` (terracotta left border + bold) added at runtime by `hover-previews.js`. Open/closed state persists in `localStorage` under the key `mdview-nav`.
+**Collapsible nav** — the Documents, Decks, and Tags sections in the sidebar are `<details>/<summary>` elements with class `nav-group`. Documents defaults to open; Decks and Tags default to closed. A CSS `::after` arrow on `summary` rotates 90° when open. The active page link receives class `active` (terracotta left border + bold) added at runtime by `hover-previews.js`. Open/closed state persists in `localStorage` under the key `mdview-nav`.
+
+**Draggable sidebar resizer** — a `<div class="nav-resizer">` sits between the nav and main in the CSS grid (column width `4px`). It turns accent-colored on hover. Dragging it updates `grid-template-columns` on `.site-shell` in real time; the final width is saved to `localStorage` under `mdview-nav-width` and restored on the next load. Hidden on mobile (`max-width: 900px`). Min width 120px, max 480px.
 
 ---
 
@@ -190,6 +220,8 @@ Typography is Tufte-inspired: body text in Georgia/serif, UI elements in Inter/s
 **Hover cards** — attaches `mouseenter`/`mouseleave` listeners to every `<a data-preview-slug="...">` element. On hover it fetches `documents.json` (once, cached in a promise), looks up the hovered slug, and positions a floating `<aside class="hover-card">` near the cursor showing the document title and excerpt. Because this uses `fetch()`, it only works when served over HTTP — opening `dist/index.html` via `file://` silently skips hover functionality.
 
 **Nav state** — on load, an IIFE reads `localStorage` key `mdview-nav` (a `{id: boolean}` map) and sets each `details.nav-group` element's `open` property accordingly. It then attaches `toggle` listeners to persist changes. Finally it compares `window.location.pathname` against every nav link and adds class `active` to the matching link, also force-opening its parent `<details>` regardless of saved state.
+
+**Sidebar resizer** — a second IIFE handles the draggable divider. On load it reads `localStorage` key `mdview-nav-width` and applies a saved pixel width to `.site-shell`'s `grid-template-columns`. On `mousedown` on `.nav-resizer` it tracks `mousemove` to update the grid live and saves the final width on `mouseup`.
 
 ---
 
@@ -233,11 +265,23 @@ The project was scaffolded by Codex (OpenAI). The following changes were made in
 
 **Collapsible sidebar nav.** `nav()` in `build.mjs` was changed from `<section>/<h2>` to `<details>/<summary>` elements with class `nav-group`. Documents defaults open, Tags defaults closed. A CSS `::after` triangle rotates on open. `hover-previews.js` gained a nav-state IIFE that restores localStorage, persists toggles, and marks the active page link.
 
+**Fixed GitHub Actions workflow.** Added missing `npm ci` step before `npm run build`; upgraded runner to Node.js 24.
+
+---
+
+## Session 3 changes (Claude Code, May 2026)
+
+**Reveal.js slide deck support.** Docs with `layout: deck` frontmatter are rendered as slide decks instead of articles. `renderDeck()` splits the body on `\n---\n` (horizontal slides) and `\n--\n` (vertical slides) and renders each chunk through `buildDeckSlideInstance()` — a Marked instance with wikilink, displayMath, and inlineMath extensions but without listDirective or sidenoteRef. Two files are written per deck: a standalone `deck.html` (reveal.js 5.x, warm paper palette, EB Garamond headings) and an `index.html` wrapper with an iframe. A **Decks** nav section appears automatically when any deck docs exist. Custom deck CSS goes in `src/styles/deck.css`, which is copied to `dist/assets/` at build time and loaded last in each deck page.
+
+**Draggable sidebar resizer.** A `<div class="nav-resizer">` was added between the nav and main in the shell template. The CSS grid gained a `4px` middle column. A JS IIFE in `hover-previews.js` handles drag logic and persists the width to `localStorage`.
+
+**Typography refinements.** Heading sizes dialed down (h1 max `2rem`, h2 `1.25rem`, h3 `1.05rem`). EB Garamond (Google Fonts) used for article headings. Nav link font size reduced to `0.8rem` to prevent wrapping on long titles.
+
 ---
 
 ## Possible next features
 
-- **Search** — `documents.json` already exists with titles and excerpts; a client-side search UI using it would be straightforward.
+- **Search** — `documents.json` already exists with titles and excerpts; a client-side search UI (see the wikiviewer reference in `wiki-viewer app for reference/site.js`) would be straightforward to adapt.
 - **Syntax highlighting** — add highlight.js as either a build-time HTML post-processor or a lazy-loaded client script.
 - **RSS feed** — generate a `dist/feed.xml` in `main()` by iterating `resolvedDocs`.
 - **Custom page templates** — allow per-document or per-folder layout overrides via a frontmatter `template` key.

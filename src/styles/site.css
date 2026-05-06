@@ -26,12 +26,18 @@ a:hover { color: #5d291f; }
 
 .site-shell {
   display: grid;
-  grid-template-columns: minmax(13rem, 18vw) minmax(0, 1fr);
+  grid-template-columns: minmax(13rem, 18vw) 4px minmax(0, 1fr);
   min-height: 100vh;
 }
 
+.nav-resizer {
+  cursor: col-resize;
+  background: var(--line);
+  transition: background 0.15s;
+}
+.nav-resizer:hover { background: var(--accent); }
+
 .site-nav {
-  border-right: 1px solid var(--line);
   background: color-mix(in srgb, var(--sidebar) 88%, white);
   padding: clamp(1rem, 2vw, 2rem);
   position: sticky;
@@ -69,7 +75,7 @@ a:hover { color: #5d291f; }
 .nav-group[open] summary::after { transform: rotate(90deg); }
 .nav-group ul { list-style: none; margin: 0; padding: 0; }
 .nav-group li { margin: 0.35rem 0; }
-.nav-group a { color: var(--ink); text-decoration: none; }
+.nav-group a { color: var(--ink); font-size: 0.8rem; text-decoration: none; }
 .nav-group a:hover { color: var(--accent); }
 .nav-group a.active { border-left: 2px solid var(--accent); color: var(--accent); font-weight: 600; padding-left: 0.4rem; }
 
@@ -140,6 +146,10 @@ article figcaption { color: var(--muted); font-family: Inter, sans-serif; font-s
 .generated-list h2 { font-family: Inter, sans-serif; font-size: 0.8rem; letter-spacing: 0.12em; margin: 0 0 0.75rem; text-transform: uppercase; }
 .generated-list ul, .backlinks ul { margin: 0; padding-left: 1.2rem; }
 
+.deck-titlebar { align-items: baseline; display: flex; gap: 1.5rem; justify-content: space-between; margin-bottom: 0.5rem; }
+.deck-fullscreen-link { color: var(--muted); font-family: Inter, sans-serif; font-size: 0.82rem; white-space: nowrap; }
+.deck-frame { border: 1px solid var(--line); border-radius: 0.5rem; height: 72vh; margin-top: 0.5rem; width: 100%; }
+
 .backlinks {
   border-top: 1px solid var(--line);
   font-family: Inter, sans-serif;
@@ -171,6 +181,7 @@ article figcaption { color: var(--muted); font-family: Inter, sans-serif; font-s
 @media (max-width: 900px) {
   .site-shell { display: block; }
   .site-nav { height: auto; position: static; }
+  .nav-resizer { display: none; }
   .document-layout { display: block; padding-top: 2rem; }
   .sidenote { float: none; margin: 0.75rem 0 1.25rem; width: auto; }
 }

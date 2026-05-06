@@ -1,2 +1,2 @@
-# ALL EXAMPLE PAGES
-LIST tags=example
+# ALL AI PAGES
+LIST tags=ai

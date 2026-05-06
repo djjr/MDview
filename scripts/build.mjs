@@ -113,6 +113,7 @@ function makeDoc(file, source) {
     body: parsed.body,
     data: parsed.data,
     excerpt: stripMarkdown(parsed.body).slice(0, 220),
+    isDeck: parsed.data.layout === 'deck',
     rel,
     slug,
     tags,
@@ -123,6 +124,94 @@ function makeDoc(file, source) {
 function resolveLink(target, docs) {
   const clean = slugify(target);
   return docs.find((doc) => doc.aliases.some((alias) => slugify(alias) === clean)) || null;
+}
+
+// Marked instance for individual slide content: wikilinks + math + images,
+// but no listDirective or sidenoteRef (those don't belong in slides).
+function buildDeckSlideInstance(doc, docs) {
+  const extensions = [
+    {
+      name: 'displayMath',
+      level: 'block',
+      start(src) { const idx = src.indexOf('$$'); return idx >= 0 ? idx : undefined; },
+      tokenizer(src) {
+        const match = src.match(/^\$\$([\s\S]+?)\$\$/);
+        if (!match) return undefined;
+        return { type: 'displayMath', raw: match[0], math: match[1].trim() };
+      },
+      renderer(token) {
+        try {
+          return katex.renderToString(token.math, { displayMode: true, throwOnError: true }) + '\n';
+        } catch (err) {
+          return `<div class="math-error">${escapeHtml(token.math)}<br><small>${escapeHtml(err.message)}</small></div>\n`;
+        }
+      },
+    },
+    {
+      name: 'inlineMath',
+      level: 'inline',
+      start(src) { const idx = src.indexOf('$'); return idx >= 0 ? idx : undefined; },
+      tokenizer(src) {
+        if (src.startsWith('$$')) return undefined;
+        const match = src.match(/^\$([^$\n]+?)\$/);
+        if (!match) return undefined;
+        return { type: 'inlineMath', raw: match[0], math: match[1] };
+      },
+      renderer(token) {
+        try {
+          return katex.renderToString(token.math, { displayMode: false, throwOnError: true });
+        } catch (err) {
+          return `<span class="math-error">${escapeHtml(token.math)}</span>`;
+        }
+      },
+    },
+    {
+      name: 'wikilink',
+      level: 'inline',
+      start(src) { return src.indexOf('[['); },
+      tokenizer(src) {
+        const match = src.match(/^\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/);
+        if (!match) return undefined;
+        return { type: 'wikilink', raw: match[0], target: match[1].trim(), label: match[2]?.trim() };
+      },
+      renderer(token) {
+        const linked = resolveLink(token.target, docs);
+        const label = token.label || token.target;
+        if (!linked) return `<span class="missing-link">${escapeHtml(label)}</span>`;
+        doc.outgoingLinks.add(linked.slug);
+        return `<a href="${base}${linked.slug}/">${escapeHtml(label)}</a>`;
+      },
+    },
+  ];
+
+  const renderer = {
+    image({ href, title, text }) {
+      const img = `<img src="${escapeHtml(href)}" alt="${escapeHtml(text)}"${title ? ` title="${escapeHtml(title)}"` : ''}>`;
+      return text
+        ? `<figure>${img}<figcaption>${escapeHtml(text)}</figcaption></figure>\n`
+        : `<figure>${img}</figure>\n`;
+    },
+  };
+
+  return new Marked({ gfm: true, extensions, renderer });
+}
+
+// Split deck body into reveal.js <section> elements.
+// Horizontal slides are separated by lines containing only ---.
+// Vertical slides (within a horizontal section) are separated by lines containing only --.
+function renderDeck(doc, docs) {
+  const instance = buildDeckSlideInstance(doc, docs);
+  const normalized = '\n' + doc.body.trim() + '\n';
+  const hSections = normalized.split(/\n---\n/).map((s) => s.trim()).filter(Boolean);
+
+  return hSections.map((hSection) => {
+    const vSlides = ('\n' + hSection + '\n').split(/\n--\n/).map((s) => s.trim()).filter(Boolean);
+    if (vSlides.length === 1) {
+      return `<section>${instance.parse(vSlides[0])}</section>`;
+    }
+    const inner = vSlides.map((slide) => `<section>${instance.parse(slide)}</section>`).join('\n');
+    return `<section>\n${inner}\n</section>`;
+  }).join('\n');
 }
 
 // Build a Marked instance with three custom extensions wired to this
@@ -321,14 +410,79 @@ function pageTemplate(doc, content, docs, backlinks = []) {
   );
 }
 
+function deckTemplate(doc, sectionsHtml) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(doc.title)}</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/simple.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;600&display=swap">
+<link rel="stylesheet" href="${base}assets/deck.css">
+<style>
+  :root { --paper: #fbf8f0; --ink: #25221e; --accent: #8b3f2f; --muted: #6d655c; }
+  body { background: var(--paper); }
+  .reveal { font-family: Georgia, Cambria, "Times New Roman", serif; background: var(--paper); color: var(--ink); }
+  .reveal h1, .reveal h2, .reveal h3, .reveal h4 { font-family: "EB Garamond", Georgia, serif; font-weight: 600; color: var(--ink); text-transform: none; letter-spacing: 0; }
+  .reveal .slides { text-align: left; }
+  .reveal a { color: var(--accent); }
+  .reveal code { background: #efe6d8; border-radius: 0.25rem; font-size: 0.85em; padding: 0.1em 0.3em; }
+  .reveal pre { background: #2b2722; color: #fff7e8; box-shadow: none; }
+  .reveal pre code { background: transparent; padding: 0; }
+  .reveal section img { max-height: 65vh; border-radius: 0.4rem; }
+  .reveal figcaption { font-size: 0.65em; color: var(--muted); margin-top: 0.4em; }
+  .reveal .progress { color: var(--accent); }
+  .reveal .controls { color: var(--accent); }
+  .missing-link { color: var(--muted); text-decoration: underline dotted; }
+</style>
+</head>
+<body>
+<div class="reveal">
+  <div class="slides">
+${sectionsHtml}
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>
+Reveal.initialize({ hash: false, slideNumber: true, controls: true, progress: true, center: false, scrollActivationWidth: null });
+</script>
+</body>
+</html>`;
+}
+
+function deckWrapperTemplate(doc, docs) {
+  const tags = doc.tags.map((tag) => `<a class="tag-pill" href="${base}tags/${tag}/">#${escapeHtml(tag)}</a>`).join('');
+  const deckUrl = `${base}${doc.slug}/deck.html`;
+  const content =
+    `<article>` +
+    `<div class="doc-meta">${doc.rel}<div class="tag-list">${tags}</div></div>` +
+    `<div class="deck-titlebar">` +
+    `<h1>${escapeHtml(doc.title)}</h1>` +
+    `<a class="deck-fullscreen-link" href="${deckUrl}" target="_blank">Open fullscreen ↗</a>` +
+    `</div>` +
+    `<iframe class="deck-frame" src="${deckUrl}" allowfullscreen allow="fullscreen"></iframe>` +
+    `</article>`;
+  return shell(content, docs, doc.title);
+}
+
 function nav(docs) {
+  const regularDocs = docs.filter((doc) => !doc.isDeck);
+  const deckDocs = docs.filter((doc) => doc.isDeck);
   const topTags = Array.from(new Set(docs.flatMap((doc) => doc.tags))).sort();
-  const docItems = docs.map((doc) => `<li><a href="${base}${doc.slug}/">${escapeHtml(doc.title)}</a></li>`).join('');
+  const docItems = regularDocs.map((doc) => `<li><a href="${base}${doc.slug}/">${escapeHtml(doc.title)}</a></li>`).join('');
   const tagItems = topTags.map((tag) => `<li><a href="${base}tags/${tag}/">#${escapeHtml(tag)}</a></li>`).join('');
+  const decksSection = deckDocs.length
+    ? `<details class="nav-group" id="nav-decks"><summary>Decks</summary><ul>${deckDocs.map((doc) => `<li><a href="${base}${doc.slug}/">${escapeHtml(doc.title)}</a></li>`).join('')}</ul></details>`
+    : '';
   return (
     `<nav class="site-nav">` +
     `<a class="site-title" href="${base}">${escapeHtml(siteTitle)}</a>` +
     `<details class="nav-group" id="nav-docs" open><summary>Documents</summary><ul>${docItems}</ul></details>` +
+    decksSection +
     `<details class="nav-group" id="nav-tags"><summary>Tags</summary><ul>${tagItems}</ul></details>` +
     `</nav>`
   );
@@ -346,7 +500,7 @@ function shell(main, docs, title = siteTitle) {
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 </head>
 <body>
-<div class="site-shell">${nav(docs)}<main class="document-layout">${main}</main></div>
+<div class="site-shell">${nav(docs)}<div class="nav-resizer" aria-hidden="true"></div><main class="document-layout">${main}</main></div>
 <script>window.MDVIEW_BASE=${JSON.stringify(base)}</script>
 <script type="module" src="${base}assets/hover-previews.js"></script>
 </body>
@@ -362,6 +516,7 @@ async function writePage(slug, html) {
 async function copyAssets() {
   await fs.mkdir(path.join(distDir, 'assets'), { recursive: true });
   await fs.cp(path.join(root, 'src/styles/site.css'), path.join(distDir, 'assets/site.css'));
+  await fs.cp(path.join(root, 'src/styles/deck.css'), path.join(distDir, 'assets/deck.css'));
   await fs.cp(path.join(root, 'src/client/hover-previews.js'), path.join(distDir, 'assets/hover-previews.js'));
   await fs.cp(path.join(root, 'public/favicon.svg'), path.join(distDir, 'favicon.svg'));
 }
@@ -374,7 +529,9 @@ async function main() {
   for (const doc of resolvedDocs) doc.outgoingLinks = new Set();
 
   const rendered = new Map();
-  for (const doc of resolvedDocs) rendered.set(doc.slug, renderMarkdown(doc, resolvedDocs));
+  for (const doc of resolvedDocs) {
+    rendered.set(doc.slug, doc.isDeck ? renderDeck(doc, resolvedDocs) : renderMarkdown(doc, resolvedDocs));
+  }
 
   const backlinks = new Map(resolvedDocs.map((doc) => [doc.slug, []]));
   for (const doc of resolvedDocs) {
@@ -384,9 +541,15 @@ async function main() {
   await copyAssets();
 
   for (const doc of resolvedDocs) {
-    const html = pageTemplate(doc, rendered.get(doc.slug), resolvedDocs, backlinks.get(doc.slug) || []);
-    await writePage(doc.slug, html);
-    if (doc.slug === 'index') await fs.writeFile(path.join(distDir, 'index.html'), html);
+    if (doc.isDeck) {
+      await fs.mkdir(path.join(distDir, doc.slug), { recursive: true });
+      await fs.writeFile(path.join(distDir, doc.slug, 'deck.html'), deckTemplate(doc, rendered.get(doc.slug)));
+      await writePage(doc.slug, deckWrapperTemplate(doc, resolvedDocs));
+    } else {
+      const html = pageTemplate(doc, rendered.get(doc.slug), resolvedDocs, backlinks.get(doc.slug) || []);
+      await writePage(doc.slug, html);
+      if (doc.slug === 'index') await fs.writeFile(path.join(distDir, 'index.html'), html);
+    }
   }
 
   const allTags = Array.from(new Set(resolvedDocs.flatMap((doc) => doc.tags))).sort();
