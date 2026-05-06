@@ -41,3 +41,32 @@ document.querySelectorAll('a[data-preview-slug]').forEach((link) => {
   link.addEventListener('focus', show);
   link.addEventListener('blur', hide);
 });
+
+// Nav: restore persisted open/closed state, persist changes, highlight active page.
+(function () {
+  const groups = document.querySelectorAll('details.nav-group[id]');
+
+  try {
+    const saved = JSON.parse(localStorage.getItem('mdview-nav') || '{}');
+    groups.forEach((el) => { if (el.id in saved) el.open = saved[el.id]; });
+  } catch {}
+
+  groups.forEach((el) => {
+    el.addEventListener('toggle', () => {
+      try {
+        const state = {};
+        groups.forEach((d) => { state[d.id] = d.open; });
+        localStorage.setItem('mdview-nav', JSON.stringify(state));
+      } catch {}
+    });
+  });
+
+  const pathname = window.location.pathname;
+  document.querySelectorAll('.site-nav a[href]').forEach((a) => {
+    if (a.pathname === pathname) {
+      a.classList.add('active');
+      const details = a.closest('details.nav-group');
+      if (details) details.open = true;
+    }
+  });
+}());

@@ -49,18 +49,27 @@ a:hover { color: #5d291f; }
   text-decoration: none;
 }
 
-.nav-section { margin: 1.5rem 0; }
-.nav-section h2 {
+.nav-group { margin: 1.5rem 0; }
+.nav-group summary {
   color: var(--muted);
+  cursor: pointer;
+  display: flex;
   font-size: 0.72rem;
+  justify-content: space-between;
   letter-spacing: 0.12em;
+  list-style: none;
   margin: 0 0 0.55rem;
   text-transform: uppercase;
+  user-select: none;
 }
-.nav-section ul { list-style: none; margin: 0; padding: 0; }
-.nav-section li { margin: 0.35rem 0; }
-.nav-section a { color: var(--ink); text-decoration: none; }
-.nav-section a:hover { color: var(--accent); }
+.nav-group summary::-webkit-details-marker { display: none; }
+.nav-group summary::after { color: var(--line); content: '▸'; font-size: 0.6rem; transition: transform 0.15s; }
+.nav-group[open] summary::after { transform: rotate(90deg); }
+.nav-group ul { list-style: none; margin: 0; padding: 0; }
+.nav-group li { margin: 0.35rem 0; }
+.nav-group a { color: var(--ink); text-decoration: none; }
+.nav-group a:hover { color: var(--accent); }
+.nav-group a.active { border-left: 2px solid var(--accent); color: var(--accent); font-weight: 600; padding-left: 0.4rem; }
 
 .document-layout {
   display: grid;
@@ -88,6 +97,9 @@ article blockquote { border-left: 3px solid var(--accent); color: var(--muted); 
 article code { background: #efe6d8; border-radius: 0.25rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; padding: 0.1rem 0.25rem; }
 article pre { background: #2b2722; border-radius: 0.7rem; color: #fff7e8; overflow: auto; padding: 1rem; }
 article pre code { background: transparent; color: inherit; padding: 0; }
+article figure { margin: 1.5rem auto; text-align: center; }
+article figure img { border-radius: 0.5rem; height: auto; max-width: 100%; }
+article figcaption { color: var(--muted); font-family: Inter, sans-serif; font-size: 0.82rem; line-height: 1.4; margin-top: 0.45rem; }
 
 .doc-meta { color: var(--muted); font-family: var(--sans, Inter, sans-serif); font-size: 0.85rem; margin-bottom: 2rem; }
 .tag-list { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.75rem; }
