@@ -1,1 +1,2 @@
+# ALL EXAMPLE PAGES
 LIST tags=example
