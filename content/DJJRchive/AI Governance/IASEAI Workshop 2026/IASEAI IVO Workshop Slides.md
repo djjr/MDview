@@ -1,0 +1,1 @@
+<iframe src="https://slides.com/djjr/ivo-workshop/embed?byline=hidden&share=hidden" width="800" height="600" title="IASEAI 26" scrolling="no" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
