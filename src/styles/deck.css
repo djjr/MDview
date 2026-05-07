@@ -416,7 +416,7 @@ section.has-dark-background h6 {
  * so it persists across all slides.
  *********************************************/
 .reveal-viewport::after {
-  content: "CC BY-NC 4.0 Dan J Ryan 2026";
+  content: "CC BY-NC 4.0 Dan Ryan 2026";
   position: fixed;
   bottom: 14px;
   left: 20px;
@@ -430,7 +430,7 @@ section.has-dark-background h6 {
   user-select: none;
 }
 .reveal-viewport::before {
-  content: "HMIA2026";
+  content: "MDview2026";
   position: fixed;
   top: 14px;
   right: 20px;

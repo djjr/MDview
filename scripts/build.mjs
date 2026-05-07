@@ -8,6 +8,8 @@ const contentDir = path.join(root, 'content');
 const distDir = path.join(root, 'dist');
 const siteTitle = process.env.MDVIEW_TITLE || 'MDview';
 const base = normalizeBase(process.env.MDVIEW_BASE || '/');
+const pkg = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'));
+const version = pkg.version || '';
 
 function normalizeBase(value) {
   if (!value || value === '/') return '/';
@@ -30,7 +32,14 @@ function slugify(value) {
     .replace(/[^a-z0-9/ -]/g, '')
     .trim()
     .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
+    .replace(/-+/g, '-')
+    .replace(/\/+$/, '');
+}
+
+function prettifyFolder(segment) {
+  return segment
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 async function walk(dir) {
@@ -104,7 +113,7 @@ function stripMarkdown(markdown) {
 function makeDoc(file, source) {
   const rel = path.relative(contentDir, file).replace(/\\/g, '/');
   const parsed = parseFrontmatter(source);
-  const slug = slugify(rel.replace(/(^|\/)index\.md$/i, '$1index')) || 'index';
+  const slug = slugify(rel.replace(/\/?index\.md$/i, '')) || 'index';
   const title = parsed.data.title || path.basename(rel, '.md').replace(/[-_]/g, ' ');
   const rawTags = parsed.data.tags ? (Array.isArray(parsed.data.tags) ? parsed.data.tags : [parsed.data.tags]) : [];
   const tags = Array.from(new Set([...rawTags, ...collectInlineTags(parsed.body)].map(String).filter(Boolean))).sort();
@@ -126,9 +135,46 @@ function resolveLink(target, docs) {
   return docs.find((doc) => doc.aliases.some((alias) => slugify(alias) === clean)) || null;
 }
 
-// Marked instance for individual slide content: wikilinks + math + images,
-// but no listDirective or sidenoteRef (those don't belong in slides).
-function buildDeckSlideInstance(doc, docs) {
+// Marked instance for individual slide content: wikilinks + math + images.
+// Footnote references render as <sup>N</sup> and are collected in the
+// returned `collectedFootnotes` array so the caller can append a sub-slide.
+function buildDeckSlideInstance(doc, docs, footnotes = new Map()) {
+  let footnoteCount = 0;
+  const collectedFootnotes = [];
+  // Math extensions needed so footnote text renders $...$ correctly.
+  const inlineMarked = new Marked({
+    gfm: true,
+    extensions: [
+      {
+        name: 'displayMath', level: 'block',
+        start(src) { const idx = src.indexOf('$$'); return idx >= 0 ? idx : undefined; },
+        tokenizer(src) {
+          const match = src.match(/^\$\$([\s\S]+?)\$\$/);
+          if (!match) return undefined;
+          return { type: 'displayMath', raw: match[0], math: match[1].trim() };
+        },
+        renderer(token) {
+          try { return katex.renderToString(token.math, { displayMode: true, throwOnError: true }) + '\n'; }
+          catch (err) { return `<div class="math-error">${escapeHtml(token.math)}</div>\n`; }
+        },
+      },
+      {
+        name: 'inlineMath', level: 'inline',
+        start(src) { const idx = src.indexOf('$'); return idx >= 0 ? idx : undefined; },
+        tokenizer(src) {
+          if (src.startsWith('$$')) return undefined;
+          const match = src.match(/^\$([^$\n]+?)\$/);
+          if (!match) return undefined;
+          return { type: 'inlineMath', raw: match[0], math: match[1] };
+        },
+        renderer(token) {
+          try { return katex.renderToString(token.math, { displayMode: false, throwOnError: true }); }
+          catch (err) { return `<span class="math-error">${escapeHtml(token.math)}</span>`; }
+        },
+      },
+    ],
+  });
+
   const extensions = [
     {
       name: 'displayMath',
@@ -182,6 +228,25 @@ function buildDeckSlideInstance(doc, docs) {
         return `<a href="${base}${linked.slug}/">${escapeHtml(label)}</a>`;
       },
     },
+    // Footnote references render as superscript numbers.
+    // Definitions are collected for the caller to build a footnote sub-slide.
+    {
+      name: 'deckFootnoteRef',
+      level: 'inline',
+      start(src) { return src.indexOf('[^'); },
+      tokenizer(src) {
+        const match = src.match(/^\[\^([^\]]+)\]/);
+        if (!match) return undefined;
+        return { type: 'deckFootnoteRef', raw: match[0], id: match[1] };
+      },
+      renderer(token) {
+        const noteSource = footnotes.get(token.id);
+        if (!noteSource) return '';
+        const number = ++footnoteCount;
+        collectedFootnotes.push({ number, html: inlineMarked.parseInline(noteSource) });
+        return `<sup>${number}</sup>`;
+      },
+    },
   ];
 
   const renderer = {
@@ -193,24 +258,39 @@ function buildDeckSlideInstance(doc, docs) {
     },
   };
 
-  return new Marked({ gfm: true, extensions, renderer });
+  const instance = new Marked({ gfm: true, extensions, renderer });
+  return { instance, collectedFootnotes };
+}
+
+// Render a single slide chunk, returning one or two <section> strings.
+// If the slide contains footnotes, a second <section class="deck-footnotes">
+// is appended as a vertical sub-slide beneath the main slide.
+function renderSlideChunk(source, doc, docs) {
+  const { body, footnotes } = extractFootnotes(source);
+  const { instance, collectedFootnotes } = buildDeckSlideInstance(doc, docs, footnotes);
+  const sections = [`<section>${instance.parse(body)}</section>`];
+  if (collectedFootnotes.length > 0) {
+    const items = collectedFootnotes
+      .map(({ number, html }) => `<li><sup>${number}</sup> ${html}</li>`)
+      .join('');
+    sections.push(`<section class="deck-footnotes"><ul>${items}</ul></section>`);
+  }
+  return sections;
 }
 
 // Split deck body into reveal.js <section> elements.
 // Horizontal slides are separated by lines containing only ---.
 // Vertical slides (within a horizontal section) are separated by lines containing only --.
+// Footnotes on any slide produce an automatic vertical sub-slide beneath it.
 function renderDeck(doc, docs) {
-  const instance = buildDeckSlideInstance(doc, docs);
   const normalized = '\n' + doc.body.trim() + '\n';
   const hSections = normalized.split(/\n---\n/).map((s) => s.trim()).filter(Boolean);
 
   return hSections.map((hSection) => {
-    const vSlides = ('\n' + hSection + '\n').split(/\n--\n/).map((s) => s.trim()).filter(Boolean);
-    if (vSlides.length === 1) {
-      return `<section>${instance.parse(vSlides[0])}</section>`;
-    }
-    const inner = vSlides.map((slide) => `<section>${instance.parse(slide)}</section>`).join('\n');
-    return `<section>\n${inner}\n</section>`;
+    const rawVSlides = ('\n' + hSection + '\n').split(/\n--\n/).map((s) => s.trim()).filter(Boolean);
+    const vSections = rawVSlides.flatMap((slide) => renderSlideChunk(slide, doc, docs));
+    if (vSections.length === 1) return vSections[0];
+    return `<section>\n${vSections.join('\n')}\n</section>`;
   }).join('\n');
 }
 
@@ -398,13 +478,36 @@ function renderMarkdown(doc, docs) {
   return instance.parse(body);
 }
 
+function breadcrumbsHtml(doc, allDocs) {
+  const parts = doc.slug.split('/');
+  if (parts.length <= 1) return '';
+
+  const crumbs = [];
+  for (let i = 0; i < parts.length - 1; i++) {
+    const ancestorSlug = parts.slice(0, i + 1).join('/');
+    const ancestorDoc = allDocs.find((d) => d.slug === ancestorSlug);
+    const label = ancestorDoc ? ancestorDoc.title : prettifyFolder(parts[i]);
+    crumbs.push(`<a href="${base}${ancestorSlug}/">${escapeHtml(label)}</a>`);
+  }
+
+  const sep = `<span class="crumb-sep" aria-hidden="true">›</span>`;
+  const all = [...crumbs, `<span class="crumb-current">${escapeHtml(doc.title)}</span>`];
+  return `<nav class="breadcrumb" aria-label="Breadcrumb">${all.join(` ${sep} `)}</nav>`;
+}
+
 function pageTemplate(doc, content, docs, backlinks = []) {
   const tags = doc.tags.map((tag) => `<a class="tag-pill" href="${base}tags/${tag}/">#${escapeHtml(tag)}</a>`).join('');
   const backlinksHtml = backlinks.length
     ? `<section class="backlinks"><h2>Backlinks</h2><ul>${backlinks.map((link) => `<li><a href="${base}${link.slug}/" data-preview-slug="${link.slug}">${escapeHtml(link.title)}</a></li>`).join('')}</ul></section>`
     : '';
+  const crumbs = breadcrumbsHtml(doc, docs);
   return shell(
-    `<article><div class="doc-meta">${doc.rel}<div class="tag-list">${tags}</div></div>${content}${backlinksHtml}</article>`,
+    `<article>` +
+    `<div class="doc-meta">` +
+    (crumbs || `<span class="doc-path">${escapeHtml(doc.rel)}</span>`) +
+    `<div class="tag-list">${tags}</div>` +
+    `</div>` +
+    `${content}${backlinksHtml}</article>`,
     docs,
     doc.title,
   );
@@ -437,6 +540,9 @@ function deckTemplate(doc, sectionsHtml) {
   .reveal .progress { color: var(--accent); }
   .reveal .controls { color: var(--accent); }
   .missing-link { color: var(--muted); text-decoration: underline dotted; }
+  .deck-footnotes { font-size: 0.7em; color: var(--muted); }
+  .deck-footnotes ul { list-style: none; margin: 0; padding: 0; line-height: 1.8; }
+  .deck-footnotes sup { font-size: 0.75em; font-weight: 700; margin-right: 0.25em; }
 </style>
 <link rel="stylesheet" href="${base}assets/deck.css">
 </head>
@@ -455,35 +561,112 @@ Reveal.initialize({ hash: false, slideNumber: true, controls: true, progress: tr
 }
 
 function deckWrapperTemplate(doc, docs) {
-  const tags = doc.tags.map((tag) => `<a class="tag-pill" href="${base}tags/${tag}/">#${escapeHtml(tag)}</a>`).join('');
   const deckUrl = `${base}${doc.slug}/deck.html`;
   const content =
-    `<article>` +
-    `<div class="doc-meta">${doc.rel}<div class="tag-list">${tags}</div></div>` +
     `<div class="deck-titlebar">` +
     `<h1>${escapeHtml(doc.title)}</h1>` +
     `<a class="deck-fullscreen-link" href="${deckUrl}" target="_blank">Open fullscreen ↗</a>` +
     `</div>` +
-    `<iframe class="deck-frame" src="${deckUrl}" allowfullscreen allow="fullscreen"></iframe>` +
-    `</article>`;
-  return shell(content, docs, doc.title);
+    `<iframe class="deck-frame" src="${deckUrl}" allowfullscreen allow="fullscreen"></iframe>`;
+  return pageTemplate(doc, content, docs);
+}
+
+function buildNavTree(docs) {
+  // All authored docs (regular + decks) participate in the tree.
+  // Auto-index docs are excluded from iteration — they're picked up
+  // implicitly via bySlug when an intermediate folder node is created.
+  const leafDocs = docs.filter((d) => !d.isAutoIndex);
+  const bySlug = new Map(docs.map((d) => [d.slug, d]));
+
+  function getOrCreate(node, slug, segment) {
+    if (!node.children[segment]) {
+      node.children[segment] = {
+        slug,
+        title: prettifyFolder(segment),
+        docAtThisLevel: bySlug.get(slug) || null,
+        children: {},
+      };
+    }
+    return node.children[segment];
+  }
+
+  const root = {
+    slug: '',
+    title: '',
+    docAtThisLevel: bySlug.get('index') || null,
+    children: {},
+  };
+
+  for (const doc of leafDocs) {
+    if (doc.slug === 'index') continue; // root handled above
+    const parts = doc.slug.split('/');
+    let node = root;
+    for (let i = 0; i < parts.length; i++) {
+      const slug = parts.slice(0, i + 1).join('/');
+      node = getOrCreate(node, slug, parts[i]);
+      if (i === parts.length - 1) {
+        node.docAtThisLevel = doc;
+        node.title = doc.title;
+      }
+    }
+  }
+
+  return root;
+}
+
+function renderNavTree(node, depth = 0) {
+  const childKeys = Object.keys(node.children).sort();
+  if (childKeys.length === 0) {
+    if (!node.docAtThisLevel) return '';
+    return `<li><a href="${base}${node.slug}/" data-preview-slug="${node.slug}">${escapeHtml(node.docAtThisLevel.title)}</a></li>`;
+  }
+
+  const childItems = childKeys
+    .map((key) => renderNavTree(node.children[key], depth + 1))
+    .filter(Boolean)
+    .join('');
+
+  const id = `nav-folder-${node.slug.replace(/\//g, '-')}`;
+  const label = node.docAtThisLevel
+    ? `<a href="${base}${node.slug}/">${escapeHtml(node.docAtThisLevel.title)}</a>`
+    : escapeHtml(node.title);
+  const openAttr = depth <= 1 ? ' open' : '';
+
+  return `<li><details class="nav-group nav-folder" id="${id}"${openAttr}><summary>${label}</summary><ul>${childItems}</ul></details></li>`;
 }
 
 function nav(docs) {
-  const regularDocs = docs.filter((doc) => !doc.isDeck);
-  const deckDocs = docs.filter((doc) => doc.isDeck);
-  const topTags = Array.from(new Set(docs.flatMap((doc) => doc.tags))).sort();
-  const docItems = regularDocs.map((doc) => `<li><a href="${base}${doc.slug}/">${escapeHtml(doc.title)}</a></li>`).join('');
-  const tagItems = topTags.map((tag) => `<li><a href="${base}tags/${tag}/">#${escapeHtml(tag)}</a></li>`).join('');
-  const decksSection = deckDocs.length
-    ? `<details class="nav-group" id="nav-decks"><summary>Decks</summary><ul>${deckDocs.map((doc) => `<li><a href="${base}${doc.slug}/">${escapeHtml(doc.title)}</a></li>`).join('')}</ul></details>`
+  const allTags = Array.from(new Set(docs.flatMap((d) => d.tags))).sort();
+
+  const tree = buildNavTree(docs);
+  const rootDocLink = tree.docAtThisLevel
+    ? `<ul class="nav-root-items"><li><a href="${base}">${escapeHtml(tree.docAtThisLevel.title)}</a></li></ul>`
     : '';
+  const topLevelChildren = Object.keys(tree.children)
+    .sort()
+    .map((key) => renderNavTree(tree.children[key], 1))
+    .filter(Boolean)
+    .join('');
+  const docsSection =
+    `<details class="nav-group" id="nav-docs" open>` +
+    `<summary>Documents</summary>` +
+    rootDocLink +
+    `<ul class="nav-tree">${topLevelChildren}</ul>` +
+    `</details>`;
+
+  const tagsSection =
+    `<details class="nav-group" id="nav-tags">` +
+    `<summary>Tags</summary><ul>` +
+    allTags.map((tag) => `<li><a href="${base}tags/${tag}/">#${escapeHtml(tag)}</a></li>`).join('') +
+    `</ul></details>`;
+
   return (
     `<nav class="site-nav">` +
-    `<a class="site-title" href="${base}">${escapeHtml(siteTitle)}</a>` +
-    `<details class="nav-group" id="nav-docs" open><summary>Documents</summary><ul>${docItems}</ul></details>` +
-    decksSection +
-    `<details class="nav-group" id="nav-tags"><summary>Tags</summary><ul>${tagItems}</ul></details>` +
+    `<a class="site-brand" href="${base}">` +
+    `<span class="site-name">${escapeHtml(siteTitle)}</span>` +
+    (version ? `<span class="site-version">v${escapeHtml(version)}</span>` : '') +
+    `</a>` +
+    docsSection + tagsSection +
     `</nav>`
   );
 }
@@ -521,6 +704,83 @@ async function copyAssets() {
   await fs.cp(path.join(root, 'public/favicon.svg'), path.join(distDir, 'favicon.svg'));
 }
 
+function buildFolderIndexDocs(authoredDocs) {
+  const allFolderPaths = new Set();
+  for (const doc of authoredDocs) {
+    const parts = doc.rel.split('/');
+    for (let depth = 1; depth < parts.length; depth++) {
+      allFolderPaths.add(parts.slice(0, depth).join('/'));
+    }
+  }
+
+  const authoredSlugs = new Set(authoredDocs.map((d) => d.slug));
+
+  const virtual = [];
+  for (const folderPath of allFolderPaths) {
+    const folderSlug = slugify(folderPath);
+    if (authoredSlugs.has(folderSlug)) continue;
+
+    const segments = folderPath.split('/');
+    const title = prettifyFolder(segments[segments.length - 1]);
+
+    virtual.push({
+      aliases: [title, folderSlug],
+      body: '',
+      data: {},
+      excerpt: `Contents of the ${title} folder.`,
+      isDeck: false,
+      isAutoIndex: true,
+      rel: `${folderPath}/`,
+      slug: folderSlug,
+      tags: [],
+      title,
+      outgoingLinks: new Set(),
+    });
+  }
+
+  return virtual;
+}
+
+function renderFolderIndex(doc, allDocs) {
+  const folderPrefix = doc.slug + '/';
+
+  const childDocs = allDocs.filter((d) => {
+    if (d.slug === doc.slug) return false;
+    if (!d.slug.startsWith(folderPrefix)) return false;
+    const remainder = d.slug.slice(folderPrefix.length);
+    return remainder.length > 0 && !remainder.includes('/');
+  });
+
+  const childFolders = allDocs.filter((d) => {
+    if (d.slug === doc.slug) return false;
+    if (!d.slug.startsWith(folderPrefix)) return false;
+    const remainder = d.slug.slice(folderPrefix.length);
+    return remainder.length > 0 && !remainder.includes('/') &&
+           (d.isAutoIndex || d.rel.endsWith('/'));
+  });
+
+  const folderSlugs = new Set(childFolders.map((d) => d.slug));
+  const plainDocs = childDocs.filter((d) => !folderSlugs.has(d.slug));
+
+  const foldersHtml = childFolders.length
+    ? `<section class="generated-list"><h2>Subfolders</h2><ul>` +
+      childFolders.map((d) =>
+        `<li><a href="${base}${d.slug}/" data-preview-slug="${d.slug}">📁 ${escapeHtml(d.title)}</a></li>`
+      ).join('') +
+      `</ul></section>`
+    : '';
+
+  const docsHtml = plainDocs.length
+    ? `<section class="generated-list"><h2>Documents</h2><ul>` +
+      plainDocs.map((d) =>
+        `<li><a href="${base}${d.slug}/" data-preview-slug="${d.slug}">${escapeHtml(d.title)}</a></li>`
+      ).join('') +
+      `</ul></section>`
+    : '';
+
+  return `<h1>${escapeHtml(doc.title)}</h1>\n${foldersHtml}\n${docsHtml}`;
+}
+
 async function main() {
   await fs.rm(distDir, { recursive: true, force: true });
   const files = await walk(contentDir);
@@ -528,43 +788,51 @@ async function main() {
   const resolvedDocs = (await Promise.all(docs)).sort((a, b) => a.title.localeCompare(b.title));
   for (const doc of resolvedDocs) doc.outgoingLinks = new Set();
 
+  const folderIndexDocs = buildFolderIndexDocs(resolvedDocs);
+  const allDocs = [...resolvedDocs, ...folderIndexDocs].sort((a, b) => a.title.localeCompare(b.title));
+
   const rendered = new Map();
-  for (const doc of resolvedDocs) {
-    rendered.set(doc.slug, doc.isDeck ? renderDeck(doc, resolvedDocs) : renderMarkdown(doc, resolvedDocs));
+  for (const doc of allDocs) {
+    rendered.set(
+      doc.slug,
+      doc.isDeck      ? renderDeck(doc, allDocs) :
+      doc.isAutoIndex ? renderFolderIndex(doc, allDocs) :
+                        renderMarkdown(doc, allDocs)
+    );
   }
 
-  const backlinks = new Map(resolvedDocs.map((doc) => [doc.slug, []]));
-  for (const doc of resolvedDocs) {
+  const backlinks = new Map(allDocs.map((doc) => [doc.slug, []]));
+  for (const doc of allDocs) {
     for (const linkedSlug of doc.outgoingLinks) backlinks.get(linkedSlug)?.push(doc);
   }
 
   await copyAssets();
 
-  for (const doc of resolvedDocs) {
+  for (const doc of allDocs) {
     if (doc.isDeck) {
       await fs.mkdir(path.join(distDir, doc.slug), { recursive: true });
       await fs.writeFile(path.join(distDir, doc.slug, 'deck.html'), deckTemplate(doc, rendered.get(doc.slug)));
-      await writePage(doc.slug, deckWrapperTemplate(doc, resolvedDocs));
+      await writePage(doc.slug, deckWrapperTemplate(doc, allDocs));
     } else {
-      const html = pageTemplate(doc, rendered.get(doc.slug), resolvedDocs, backlinks.get(doc.slug) || []);
+      const html = pageTemplate(doc, rendered.get(doc.slug), allDocs, backlinks.get(doc.slug) || []);
       await writePage(doc.slug, html);
       if (doc.slug === 'index') await fs.writeFile(path.join(distDir, 'index.html'), html);
     }
   }
 
-  const allTags = Array.from(new Set(resolvedDocs.flatMap((doc) => doc.tags))).sort();
+  const allTags = Array.from(new Set(allDocs.flatMap((doc) => doc.tags))).sort();
   for (const tag of allTags) {
-    const tagged = resolvedDocs.filter((doc) => doc.tags.includes(tag));
+    const tagged = allDocs.filter((doc) => doc.tags.includes(tag));
     const body =
       `<article><h1>#${escapeHtml(tag)}</h1>` +
       `<section class="generated-list"><h2>Documents</h2><ul>` +
       tagged.map((doc) => `<li><a href="${base}${doc.slug}/" data-preview-slug="${doc.slug}">${escapeHtml(doc.title)}</a></li>`).join('') +
       `</ul></section></article>`;
-    await writePage(`tags/${tag}`, shell(body, resolvedDocs, `#${tag}`));
+    await writePage(`tags/${tag}`, shell(body, allDocs, `#${tag}`));
   }
 
   const index = Object.fromEntries(
-    resolvedDocs.map((doc) => [doc.slug, { title: doc.title, excerpt: doc.excerpt, tags: doc.tags, url: `${base}${doc.slug}/` }]),
+    allDocs.map((doc) => [doc.slug, { title: doc.title, excerpt: doc.excerpt, tags: doc.tags, url: `${base}${doc.slug}/` }]),
   );
   await fs.writeFile(path.join(distDir, 'documents.json'), JSON.stringify(index, null, 2));
 }

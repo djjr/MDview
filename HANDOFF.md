@@ -279,6 +279,21 @@ The project was scaffolded by Codex (OpenAI). The following changes were made in
 
 ---
 
+## Session 4 changes (Claude Code, May 2026)
+
+**Folder-based navigation.** Four interconnected features:
+
+- **Slug fix** — `slugify()` gained `.replace(/\/+$/, '')` and `makeDoc` now strips `index.md` cleanly so `notes/index.md` → slug `notes` (URL `/notes/`) rather than `notes/index`.
+- **Auto-generated folder index pages** — `buildFolderIndexDocs()` creates virtual docs for every folder path not covered by an authored `index.md`. `renderFolderIndex()` generates their HTML (Subfolders + Documents sections). Virtual docs are flagged `isAutoIndex: true` and merged into `allDocs` before rendering; all downstream code (backlinks, tags, `documents.json`) uses `allDocs`.
+- **Breadcrumbs** — `breadcrumbsHtml()` builds a `Notes › AI › Page Title` trail for any doc more than one level deep. Replaces the raw `doc.rel` path in `pageTemplate()`; root-level docs fall back to the plain path.
+- **Hierarchical sidebar nav** — `buildNavTree()` / `renderNavTree()` replace the flat document list with a recursive `<details>/<summary>` tree. Folder nodes link to their index page if one exists. `hover-previews.js` needed no changes — `closest('details.nav-group')` already matches `.nav-folder` nodes.
+
+**Decks merged into folder tree.** The separate Decks sidebar section was removed. Deck docs appear in the folder tree alongside regular docs. `deckWrapperTemplate()` now calls `pageTemplate()` instead of `shell()` directly, so deck wrapper pages receive breadcrumbs, tag pills, and backlinks like any other page.
+
+**Footnotes in slide decks.** `buildDeckSlideInstance()` now accepts a `footnotes` Map and adds a `deckFootnoteRef` extension that renders `[^id]` references as `<sup>N</sup>` in the slide and collects the note text. `renderDeck()` was refactored into a `renderSlideChunk()` helper that calls `extractFootnotes()` per slide chunk. If a slide has footnotes, a vertical sub-slide (`<section class="deck-footnotes">`) is automatically appended beneath it — press ↓ in reveal.js to reveal it. Footnote text supports math (the `inlineMarked` instance inside `buildDeckSlideInstance` now includes `displayMath` and `inlineMath` extensions).
+
+---
+
 ## Possible next features
 
 - **Search** — `documents.json` already exists with titles and excerpts; a client-side search UI (see the wikiviewer reference in `wiki-viewer app for reference/site.js`) would be straightforward to adapt.
@@ -287,3 +302,4 @@ The project was scaffolded by Codex (OpenAI). The following changes were made in
 - **Custom page templates** — allow per-document or per-folder layout overrides via a frontmatter `template` key.
 - **Watch mode** — `npm run watch` using Node's `fs.watch` to rebuild on content changes, paired with a live-reload server.
 - **Local image asset copying** — scan rendered HTML for `<img src>` attributes pointing to relative paths and copy those files into `dist/assets/`.
+- **Video iframes in decks** — detect `<iframe>` tags with YouTube/video `src` during deck rendering and wrap them in a 16:9 aspect-ratio div (`position: relative; padding-top: 56.25%`) so they fill slide real estate. Pattern: `<div style="position:relative;width:100%;padding-top:56.25%"><iframe style="position:absolute;top:0;left:0;width:100%;height:100%" ...></iframe></div>`.
