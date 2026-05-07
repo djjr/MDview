@@ -101,6 +101,8 @@ function extractFootnotes(markdown) {
 function stripMarkdown(markdown) {
   return markdown
     .replace(/^---[\s\S]*?---/, '')
+    .replace(/\$\$[\s\S]+?\$\$/g, '[math]')
+    .replace(/\$[^$\n]+?\$/g, '[math]')
     .replace(/^\[\^([^\]]+)\]:.*$/gm, '')   // remove footnote definitions
     .replace(/\[\^[^\]]+\]/g, '')            // remove inline footnote refs like [^id]
     .replace(/!?\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_, target, label) => label || target)
