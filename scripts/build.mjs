@@ -117,6 +117,7 @@ function makeDoc(file, source) {
   const parsed = parseFrontmatter(source);
   const slug = slugify(rel.replace(/\/?index\.md$/i, '')) || 'index';
   const title = parsed.data.title || path.basename(rel, '.md').replace(/[-_]/g, ' ');
+  const shortTitle = parsed.data.short_title || null;
   const rawTags = parsed.data.tags ? (Array.isArray(parsed.data.tags) ? parsed.data.tags : [parsed.data.tags]) : [];
   const tags = Array.from(new Set([...rawTags, ...collectInlineTags(parsed.body)].map(String).filter(Boolean))).sort();
   return {
@@ -126,6 +127,7 @@ function makeDoc(file, source) {
     excerpt: stripMarkdown(parsed.body).slice(0, 220),
     isDeck: parsed.data.layout === 'deck',
     rel,
+    shortTitle,
     slug,
     tags,
     title,
@@ -227,7 +229,7 @@ function buildDeckSlideInstance(doc, docs, footnotes = new Map()) {
         const label = token.label || token.target;
         if (!linked) return `<span class="missing-link">${escapeHtml(label)}</span>`;
         doc.outgoingLinks.add(linked.slug);
-        return `<a href="${base}${linked.slug}/">${escapeHtml(label)}</a>`;
+        return `<a href="${base}${linked.slug}/" data-preview-slug="${linked.slug}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`;
       },
     },
     // Footnote references render as superscript numbers.
@@ -545,6 +547,10 @@ function deckTemplate(doc, sectionsHtml) {
   .deck-footnotes { font-size: 0.7em; color: var(--muted); }
   .deck-footnotes ul { list-style: none; margin: 0; padding: 0; line-height: 1.8; }
   .deck-footnotes sup { font-size: 0.75em; font-weight: 700; margin-right: 0.25em; }
+  .hover-card { background: #fffdf8; border: 1px solid #ded5c8; border-radius: 0.85rem; box-shadow: 0 18px 50px rgba(40,32,20,0.16); color: #25221e; display: none; font-family: Inter, ui-sans-serif, sans-serif; left: 0; max-width: 22rem; padding: 0.9rem 1rem; position: fixed; top: 0; z-index: 100; pointer-events: none; }
+  .hover-card[data-visible="true"] { display: block; }
+  .hover-card h3 { font-size: 1rem; margin: 0 0 0.4rem; }
+  .hover-card p { color: #6d655c; font-size: 0.88rem; line-height: 1.45; margin: 0; }
 </style>
 <link rel="stylesheet" href="${base}assets/deck.css">
 </head>
@@ -557,6 +563,49 @@ ${sectionsHtml}
 <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
 <script>
 Reveal.initialize({ hash: false, slideNumber: true, controls: true, progress: true, center: false, scrollActivationWidth: null });
+</script>
+<script>
+(function () {
+  const card = document.createElement('aside');
+  card.className = 'hover-card';
+  card.setAttribute('role', 'tooltip');
+  document.body.appendChild(card);
+
+  let indexPromise;
+  function loadIndex() {
+    if (!indexPromise) {
+      indexPromise = fetch('${base}documents.json').then((r) => r.json()).catch(() => ({}));
+    }
+    return indexPromise;
+  }
+
+  function positionCard(e) {
+    const pad = 16, width = 352;
+    const left = Math.min(e.clientX + pad, window.innerWidth - width - pad);
+    const top = Math.min(e.clientY + pad, window.innerHeight - 180);
+    card.style.transform = \`translate(\${Math.max(pad, left)}px, \${Math.max(pad, top)}px)\`;
+  }
+
+  async function show(e) {
+    const slug = e.currentTarget.dataset.previewSlug;
+    const index = await loadIndex();
+    const doc = index[slug];
+    if (!doc) return;
+    card.innerHTML = \`<h3>\${doc.title}</h3><p>\${doc.excerpt || 'No preview available yet.'}</p>\`;
+    positionCard(e);
+    card.dataset.visible = 'true';
+  }
+
+  function hide() { card.dataset.visible = 'false'; }
+
+  document.querySelectorAll('a[data-preview-slug]').forEach((link) => {
+    link.addEventListener('mouseenter', show);
+    link.addEventListener('mousemove', positionCard);
+    link.addEventListener('mouseleave', hide);
+    link.addEventListener('focus', show);
+    link.addEventListener('blur', hide);
+  });
+}());
 </script>
 </body>
 </html>`;
@@ -620,7 +669,7 @@ function renderNavTree(node, depth = 0) {
   const childKeys = Object.keys(node.children).sort();
   if (childKeys.length === 0) {
     if (!node.docAtThisLevel) return '';
-    return `<li><a href="${base}${node.slug}/" data-preview-slug="${node.slug}">${escapeHtml(node.docAtThisLevel.title)}</a></li>`;
+    return `<li><a href="${base}${node.slug}/" data-preview-slug="${node.slug}">${escapeHtml(node.docAtThisLevel.shortTitle || node.docAtThisLevel.title)}</a></li>`;
   }
 
   const childItems = childKeys
@@ -630,7 +679,7 @@ function renderNavTree(node, depth = 0) {
 
   const id = `nav-folder-${node.slug.replace(/\//g, '-')}`;
   const label = node.docAtThisLevel
-    ? `<a href="${base}${node.slug}/">${escapeHtml(node.docAtThisLevel.title)}</a>`
+    ? `<a href="${base}${node.slug}/">${escapeHtml(node.docAtThisLevel.shortTitle || node.docAtThisLevel.title)}</a>`
     : escapeHtml(node.title);
   const openAttr = depth <= 1 ? ' open' : '';
 

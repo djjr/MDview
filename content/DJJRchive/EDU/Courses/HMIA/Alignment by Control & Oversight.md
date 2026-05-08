@@ -5,6 +5,7 @@ id: control-oversight
 type: session
 order: 19
 slidesURL: null
+short_title: Control + Oversight
 resources:
   - tab: Slides
     url: >-

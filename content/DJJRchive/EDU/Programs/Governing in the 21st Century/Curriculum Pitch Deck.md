@@ -139,10 +139,10 @@ The program is organized into three integrated layers:
 
 ## Context: Knowing where you are
 
-**A Short History of Reinventing Government**
+**[[A Short History of Reinventing Government]]**
 The "least you must know" — from Hobbes and Locke through the Progressive Era, the welfare state, neoliberalism, and the algorithmic present. Not a comprehensive survey; a strategically selective account of the forces recorded in today's governance challenges.
 
-**The Case Against Government**
+**[[The Case Against Government]]**
 A course for pro-governance professionals that takes the opposition seriously. Students work through the strongest arguments for shrinking, constraining, or dismantling the state — from public choice theory and classical liberalism to techno-libertarianism and post-liberal thought. *You can't defend what you haven't understood how to attack.*
 
 **Civics 101: Anatomy of Governance in the US**
@@ -155,37 +155,37 @@ Extends the conventional market-failure frame to a world of intelligent agents a
 
 ## Toolbox: The analytical core
 
-**Uncertainty for Practitioners**
+**[[Uncertainty for Practitioners]]**
 This is our statistics course — but it isn't a statistics course. It's structured around one core reflex: *every observation is a sample from a distribution.* Probability, decision trees, causal inference, and risk are all built on top of that. Students leave with the habit, not just the tools.
 
-**Systems Thinking**
+**[[Systems Thinking]]**
 Feedback loops, emergence, tipping points, leverage points. How to map a system before you try to fix it, and how to diagnose the unintended consequences of interventions. Includes agent-based modeling, AI-driven scenario planning, and real governance case studies: pandemic response, climate adaptation, financial oversight.
 
-**Analytical Tools for Critical Policy-Making and Implementation**
+**[[Analytical Tools for Critical Policy-Making and Implementation]]**
 Cost-benefit analysis, path dependence, simulation, and modeling for policy. The quantitative toolkit for when intuition isn't enough.
 
-**Finding Out: Research Methods for the Practical Policy Activist**
+**[[Finding Out - Research Methods for the Practical Policy Activist]]**
 How to carry out, understand, and critically assess the full range of methods. The goal: students who have deep respect for method as the foundation of credibility and accountability — and who know when to use which tool.
 
 ---
 
 ## Toolbox: The practical core
 
-**Problem Solving Five Ways**
+**[[Problem Solving Five Ways]]**
 Five professional modes — rational analysis, creative innovation, engineering pragmatism, legal reasoning, political negotiation — each with its own logic of how problems are framed, what counts as a constraint, and what success looks like. Students learn to recognize which mode is operating in a room, deploy each deliberately, and collaborate across all five.
 
-**Service Design for Government**
+**[[Service Design for Government]]**
 Effective governance isn't just policy — it's how services are experienced. Students work with a real government agency on a real service challenge: journey mapping, rapid prototyping, stakeholder engagement, feasible intervention design. *Thinking like a designer without becoming one.*
 
-**Maxims and Mantras**
+**[[Maxims and Mantras]]**
 "Move fast and break things." "Culture eats strategy for breakfast." "Personnel is policy." Leadership axioms as entry points into serious analysis of organizations, power, and decision-making — and training in the rhetorical skills that actually move people.
 
-**Building Regulatory Infrastructure to Secure Abundance**
+**[[Building Regulatory Infrastructure to Secure Abundance]]**
 How effective regulation *enables* markets, innovation, and prosperity — not just constrains them. Comparative cases: financial markets, labor, technology, environment, housing. The politics and craft of regulatory design.
 
 ---
 
-## The [School Name] signature sequence
+## The \[School Name] signature sequence
 
 **Driving Quality and Value in Public Investment**
 The program's foundational philosophy course. Built around an affirmative belief: there *are* skills, practices, structures, and institutions that enable governments to produce good outcomes for humans. This is the course that teaches students how we can "have nice things" — and why we so often don't. International comparative cases; a toolkit for producing public value.
