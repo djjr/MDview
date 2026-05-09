@@ -4,7 +4,7 @@ tags:
   - governance
   - IASEAI
   - IVO
-  - "#licensing"
+  - licensing
 ---
 
 See also [[licensing criteria for IVOs]]

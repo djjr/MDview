@@ -47,8 +47,10 @@ async function walk(dir) {
   const files = [];
   for (const entry of entries) {
     const absolute = path.join(dir, entry.name);
-    if (entry.isDirectory()) files.push(...await walk(absolute));
-    if (entry.isFile() && entry.name.endsWith('.md')) files.push(absolute);
+    const isDir = entry.isDirectory() || (entry.isSymbolicLink() && (await fs.stat(absolute)).isDirectory());
+    const isFile = entry.isFile() || (entry.isSymbolicLink() && (await fs.stat(absolute)).isFile());
+    if (isDir) files.push(...await walk(absolute));
+    else if (isFile && entry.name.endsWith('.md')) files.push(absolute);
   }
   return files;
 }
@@ -58,6 +60,9 @@ function parseValue(raw) {
   if (value.startsWith('[') && value.endsWith(']')) {
     return value.slice(1, -1).split(',').map((item) => item.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
   }
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  if (value !== '' && !isNaN(Number(value))) return Number(value);
   return value.replace(/^['"]|['"]$/g, '');
 }
 
@@ -687,8 +692,6 @@ function renderNavTree(node, depth = 0) {
 }
 
 function nav(docs) {
-  const allTags = Array.from(new Set(docs.flatMap((d) => d.tags))).sort();
-
   const tree = buildNavTree(docs);
   const rootDocLink = tree.docAtThisLevel
     ? `<ul class="nav-root-items"><li><a href="${base}">${escapeHtml(tree.docAtThisLevel.title)}</a></li></ul>`
@@ -705,19 +708,13 @@ function nav(docs) {
     `<ul class="nav-tree">${topLevelChildren}</ul>` +
     `</details>`;
 
-  const tagsSection =
-    `<details class="nav-group" id="nav-tags">` +
-    `<summary>Tags</summary><ul>` +
-    allTags.map((tag) => `<li><a href="${base}tags/${tag}/">#${escapeHtml(tag)}</a></li>`).join('') +
-    `</ul></details>`;
-
   return (
     `<nav class="site-nav">` +
     `<a class="site-brand" href="${base}">` +
     `<span class="site-name">${escapeHtml(siteTitle)}</span>` +
     (version ? `<span class="site-version">v${escapeHtml(version)}</span>` : '') +
     `</a>` +
-    docsSection + tagsSection +
+    docsSection +
     `</nav>`
   );
 }
@@ -836,7 +833,9 @@ async function main() {
   await fs.rm(distDir, { recursive: true, force: true });
   const files = await walk(contentDir);
   const docs = files.map(async (file) => makeDoc(file, await fs.readFile(file, 'utf8')));
-  const resolvedDocs = (await Promise.all(docs)).sort((a, b) => a.title.localeCompare(b.title));
+  const resolvedDocs = (await Promise.all(docs))
+    .filter((doc) => doc.data.publish !== false && doc.data.publish !== 'false')
+    .sort((a, b) => a.title.localeCompare(b.title));
   for (const doc of resolvedDocs) doc.outgoingLinks = new Set();
 
   const folderIndexDocs = buildFolderIndexDocs(resolvedDocs);

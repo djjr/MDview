@@ -1,0 +1,1 @@
+/Users/danryan/Documents/djjrVault01/PROJECTS/Roles and LLMs/In Pursuit of Intersubjectivity.md

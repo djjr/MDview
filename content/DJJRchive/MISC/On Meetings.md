@@ -1,7 +1,7 @@
 ---
 tags:
-  - "#ideas"
-  - "#meetings"
+  - ideas
+  - meetings
 ---
 # On Meetings
 ###### Dan Ryan
