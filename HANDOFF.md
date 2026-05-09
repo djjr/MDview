@@ -294,6 +294,42 @@ The project was scaffolded by Codex (OpenAI). The following changes were made in
 
 ---
 
+## Session 5 changes (Claude Code, May 2026)
+
+**Symlink support in `walk()`.** The file walker now follows symbolic links — `entry.isSymbolicLink()` triggers an `fs.stat()` call to determine whether the target is a file or directory. Dangling symlinks (targets that don't exist) are silently skipped with `continue`. This enables a publish-via-symlink workflow: drop a symlink into `content/` pointing to a folder or file in the Obsidian vault to include it in the next build.
+
+**`MDview Publish.command`** — double-clickable Mac script that shows a File/Folder chooser dialog and creates a symlink in `content/`. Handles the case where the name already exists.
+
+**`MDview Deploy.command`** — double-clickable Mac script that runs the build, does `git add -A`, commits with a timestamp message, and pushes to GitHub in one step.
+
+**`publish: false` frontmatter gate.** Docs with `publish: false` (or `"false"`) in frontmatter are filtered out before rendering — no page, no nav entry, no hover preview, no backlink target. Intended for use with the symlink workflow: set `publish: false` as the default in Obsidian templates so newly created notes aren't accidentally published.
+
+**`short_title` frontmatter field.** Sidebar nav uses `short_title` when present, falling back to `title`. The full title is used everywhere else (page `<h1>`, breadcrumbs, hover card, backlinks). Useful for long descriptive titles that wrap in the sidebar.
+
+**Wikilinks in decks open in new tab.** Deck wikilinks now render with `target="_blank" rel="noopener"` so clicking a link doesn't hijack the slide presentation. Hover preview cards are also injected into each `deck.html` via an inline script (a lightweight copy of the hover-previews logic pointing to the correct `documents.json` path).
+
+**Tags removed from sidebar.** The Tags `<details>` section has been removed from the nav. Tags still appear as pills on doc pages, and tag index pages are still generated. Use `LIST tags=foo` directives to create curated tag pages instead.
+
+**Frontmatter boolean/number parsing.** `parseValue()` now returns actual booleans (`true`/`false`) and numbers rather than strings, so frontmatter fields like `publish: false` work correctly without quoting workarounds.
+
+---
+
+## ⚠️ Open issue — ask Dan at start of next session
+
+**Symlinked content doesn't appear on the live GitHub Pages site.**
+
+The `publish-via-symlink` workflow works locally but not on GitHub Pages. When symlinks are committed to git, git stores the symlink pointer (an absolute local path like `/Users/danryan/...`), not the file contents. The GitHub Actions runner checks out the symlink but the target path doesn't exist on the runner, so those files are silently skipped.
+
+**Decision needed:** How should published-via-symlink content reach the live site?
+
+- **Option A: Build locally, push `dist/`** — remove the GitHub Actions build step. Dan runs `MDview Deploy.command` locally (where symlinks resolve), and the built `dist/` is pushed directly to a `gh-pages` branch that Pages serves. No runner involved, symlinks always resolve.
+- **Option B: Copy instead of symlink** — modify `MDview Publish.command` to copy files into `content/` rather than symlinking. Loses the "edit in one place" benefit but the files are in git and the runner can build them.
+- **Option C: Hybrid** — keep symlinks for local preview, but have Publish also copy the resolved content to a `content-published/` folder that is in git. The build uses the copy; edits in Obsidian need a re-publish step to sync.
+
+Option A is the cleanest if Dan is comfortable with a local build step as part of the deploy workflow (which `MDview Deploy.command` already does).
+
+---
+
 ## Possible next features
 
 - **Search** — `documents.json` already exists with titles and excerpts; a client-side search UI (see the wikiviewer reference in `wiki-viewer app for reference/site.js`) would be straightforward to adapt.
