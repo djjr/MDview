@@ -47,8 +47,15 @@ async function walk(dir) {
   const files = [];
   for (const entry of entries) {
     const absolute = path.join(dir, entry.name);
-    const isDir = entry.isDirectory() || (entry.isSymbolicLink() && (await fs.stat(absolute)).isDirectory());
-    const isFile = entry.isFile() || (entry.isSymbolicLink() && (await fs.stat(absolute)).isFile());
+    let isDir = entry.isDirectory();
+    let isFile = entry.isFile();
+    if (entry.isSymbolicLink()) {
+      try {
+        const resolved = await fs.stat(absolute);
+        isDir = resolved.isDirectory();
+        isFile = resolved.isFile();
+      } catch { continue; }  // dangling symlink — skip silently
+    }
     if (isDir) files.push(...await walk(absolute));
     else if (isFile && entry.name.endsWith('.md')) files.push(absolute);
   }
