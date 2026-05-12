@@ -1,3 +1,6 @@
+---
+short_title: Five Digital Things 2020
+---
 # Five Tech Things  Every Policy Student Ought to Understand
 
 Dan Ryan Zeroth Draft January 2020
