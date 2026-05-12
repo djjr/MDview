@@ -2,6 +2,7 @@
 title: HMIA 2025 Course Overview
 date: 2026-04-28
 defaultTemplate: "[[tpl-hmia-footer]]"
+layout: deck
 ---
 <!-- .slide: data-timer="0.25" -->
 <split>
