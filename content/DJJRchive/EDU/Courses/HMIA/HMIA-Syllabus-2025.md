@@ -74,7 +74,7 @@ All scores and feedback will be on Canvas or on submitted artifacts. At the end 
 
 # Schedule
 
-## 08.26 | Welcome and Overview
+## 08.26 | [[HMIA - Introduction to the Course|Welcome and Overview]]
 
 Stuart Russell says "alignment is the most important question of your life" and Dan Ryan says "this is not our first rodeo." We meet the concept of AI alignment and say a few words about "the four alignment problems" as we introduce the raison d'etre and planned itinerary of the course. PostClass we try out our Alignment Guide GPT.
 
