@@ -38,7 +38,7 @@ fi
 
 # Show what's being committed
 echo "📦 Changes to deploy:"
-git diff --cached --stat
+git --no-pager diff --cached --stat
 echo ""
 
 # Commit with timestamp
