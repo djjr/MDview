@@ -23,4 +23,4 @@ Satchel Paige
 "…panacea proneness is a diluted form of fundamentalism."
 Ackoff RL (2001) _Syst Pract Act Res 14_(1):3–10
 
-![[iseeihearido.png]]
+![](https://innoeduvation.org/images/misc/iseeihearido.png)
