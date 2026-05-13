@@ -2,7 +2,7 @@
 created: 2026-05-13 16:28
 updated: 2026-05-13 16:28
 tags:
-publish: "false"
+publish: "true"
 ---
 
 # Concepts Mentioned in Videos
