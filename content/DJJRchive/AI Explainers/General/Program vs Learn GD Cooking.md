@@ -4,7 +4,7 @@ updated: 2026-05-13 12:17
 tags:
   - AI
   - AI101
-publish: "false"
+publish: "true"
 short_title: Programming, Learning, Cooking
 ---
 
