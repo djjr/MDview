@@ -21,18 +21,17 @@ And how about the salaries?  The regression-based formula might feel right becau
 
 And what about failure modes here?  When the physics-based artillery formula fails we can systematically investigate whether any of the data input sensors were inaccurate. For the ML case, we might not know where to start looking. In the salary case, individual errors surface immediately (a candidate pushes back, you can investigate and adjust), but systematic errors may be invisible for years. Underpaying every woman we hire doesn't produce a single dramatic failure, it produces thousands of quiet ones, a different and perhaps more dangerous failure mode than the artillery case. And even if Anna removes gender from the model's features to correct for this, the model often reconstructs it through proxies: zip code, employment gaps, job title granularity.
 
-Summary
+### Summary
 
-||Explicit Program|Learned Model|
-|---|---|---|
-|**What you give it**|Instructions|Examples + objective|
-| **What can corrupt it** | Garbage in, garbage out | Historical bias; distribution shift |
-|**What it produces**|Deterministic output|Statistical prediction|
-|**Why it works**|You encoded the logic|It found the pattern|
-|**How it fails**|Predictably, traceably|Opaquely, and sometimes silently for years |
-|**Who's responsible**[^1]|The programmer|… unclear|
+Let's compare models that are explicitly programmed vs models that learn their own "program."
+**What you give it**: Instructions vs examples + objective
+**What can corrupt it**: Garbage in, garbage out vs past bias[^2]  that helped create the data and changing real world conditions.[^3] 
+**What it produces**: Deterministic output vs statistical prediction
+**Why it works**: You encoded the logic vs it found a function that describes the pattern
+**How it fails**: Predictably, traceably vs opaquely, and sometimes silently for years 
+**Who's responsible**[^1]: The programmer vs … unclear
 
-Both learned models can take into account things humans would miss. But at a risk.  The learned salary model doesn't introduce bias but rather _inherits and perpetuates_ social bias that was already in the data.[^2] The learned artillery model doesn't inherit social bias, but it does inherit the _conditions of its training data_. If all 10,000 test firings happened at moderate temperatures, the model may fail silently in arctic conditions.[^3]  And when the quiet failures eventually surface, it becomes genuinely unclear where responsibility lies.
+Both learned models can take into account things humans would miss. But at a risk.  The learned salary model doesn't introduce bias but rather _inherits and perpetuates_ social bias that was already in the data. The learned artillery model doesn't inherit social bias, but it does inherit the _conditions of its training data_. If all 10,000 test firings happened at moderate temperatures, the model may fail silently in arctic conditions. And when the quiet failures eventually surface, it becomes genuinely unclear where responsibility lies.
 
 [^1]: This will turn out to be a really important question. Many real world structures obscure where responsibility lies.  Both bureaucracy and machine learning (ML) diffuse responsibility in ways that make it hard to locate after the fact. But they do it differently: Bureaucracy distributes responsibility across _people and procedures_, "just obeying orders...." ML distributes it across _data and weights_ — the model "found" the pattern, no one encoded the injustice. The banality of evil argument that great harms can be produced by people who are each just doing their jobs maps uncomfortably well onto ML pipelines.
 
