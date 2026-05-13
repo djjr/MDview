@@ -24,12 +24,12 @@ And what about failure modes here?  When the physics-based artillery formula fai
 ### Summary
 
 Let's compare models that are explicitly programmed vs models that learn their own "program."
-**What you give it**: Instructions vs examples + objective
-**What can corrupt it**: Garbage in, garbage out vs past bias[^2]  that helped create the data and changing real world conditions.[^3] 
-**What it produces**: Deterministic output vs statistical prediction
-**Why it works**: You encoded the logic vs it found a function that describes the pattern
-**How it fails**: Predictably, traceably vs opaquely, and sometimes silently for years 
-**Who's responsible**[^1]: The programmer vs … unclear
+- **What you give it**: Instructions vs examples + objective
+- **What can corrupt it**: Garbage in, garbage out vs past bias[^2]  that helped create the data and changing real world conditions.[^3] 
+- **What it produces**: Deterministic output vs statistical prediction
+- **Why it works**: You encoded the logic vs it found a function that describes the pattern
+- **How it fails**: Predictably, traceably vs opaquely, and sometimes silently for years 
+- **Who's responsible**[^1]: The programmer vs … unclear
 
 Both learned models can take into account things humans would miss. But at a risk.  The learned salary model doesn't introduce bias but rather _inherits and perpetuates_ social bias that was already in the data. The learned artillery model doesn't inherit social bias, but it does inherit the _conditions of its training data_. If all 10,000 test firings happened at moderate temperatures, the model may fail silently in arctic conditions. And when the quiet failures eventually surface, it becomes genuinely unclear where responsibility lies.
 
