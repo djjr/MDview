@@ -8,22 +8,11 @@ tags:
   - domain/social-theory
   - type/concept
   - status/evergreen---
-
+---
 In a conversation with ChatGPT yesterday, it wrote
-<div class="dialog-container"> 
-<div class="message assistant"> 
-<div class="icon">C</div> 
-<div class="content"> 
-<div class="speaker">ChatGPT</div> 
-<div class="text">
-<p>Would you like help setting up an outline for a specific course you're working on, like _Human Intelligence Alignment_? Or something else?"
-</p></div></div></div></div>
-Thing was, we had not been talking about course development in this conversation so I asked
-<div class="dialog-container"><div class="message human"><div class="icon">D</div><div class="content"><div class="speaker">DJR</div><div class="text"><p>How did you know about that?</p></div></div></div><div class="message assistant">
-<div class="icon">C</div><div class="content"><div class="speaker">ChatGPT</div><div class="text">
-<p>You've mentioned the _Human Intelligence Alignment_ course in previous conversations. It sounds like a fascinating project! I recall that it's designed to explore ethics and governance in the context of multiple intelligent agents, giving students tools for understanding and designing systems that promote safety and alignment.</p>
-</div></div></div><div class="message human"><div class="icon">D</div><div class="content"><div class="speaker">DJR</div><div class="text"><p>So new conversations can access previous conversations?</p></div></div></div><div class="message assistant"><div class="icon">C</div><div class="content"><div class="speaker">ChatGPT</div><div class="text">
-<p>Not exactly. I don’t have access to past conversations directly, but I can remember details you've shared if they are relevant for ongoing discussions. This memory helps provide continuity and makes our interactions more productive. For instance, I know you're working on the _Human Intelligence Alignment_ course because you've told me before, and I saved it in memory.</p><p>If you'd like, I can also forget specific details or topics—it's completely up to you! Would you like me to explain further or adjust what I remember?</p></div></div></div></div></div>
+
+<iframe src="https://innoeduvation.org/danryan/production/teaching/chatbot/index.html?conversation=chatGPTKnowsMe" width="100%" height="600"></iframe>
+
 So we spend some time talking about where this memory lives and how a new conversation accesses it. ChatGPT claims that it's not simply a bunch of text that gets added to the system prompt before any conversation. So, how DOES it work?  Here's my take away.
 
 Every conversation is run through a transformer that's given the task of assessing whether anything in the conversation suggests information that is relevant to what this user is up to (cares about, knows about, etc.).  Part of the input to this process is probably things we have already remembered about this user.  This gets output as a {topic: str, content: str} pair. These are recorded in the user's profile.
