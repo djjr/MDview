@@ -17,7 +17,7 @@ So we spend some time talking about where this memory lives and how a new conver
 
 Every conversation is run through a transformer that's given the task of assessing whether anything in the conversation suggests information that is relevant to what this user is up to (cares about, knows about, etc.).  Part of the input to this process is probably things we have already remembered about this user.  This gets output as a {topic: str, content: str} pair. These are recorded in the user's profile.
 
-This memory text is also run through the transformer to create a memory vector (in embedding space, circa $10^3$ dimensions) that captures its meaning.  The set of all (maybe 10) memory vectors is a part of my profile.
+This memory text is also run through the transformer to create a memory vector (in embedding space, circa $10^{lots}$ dimensions) that captures its meaning.  The set of all (maybe 10) memory vectors is a part of my profile.
 
 When I say something in a new conversation it gets converted to a semantic vector - the meaning of my prompt.  We can query the cosine similarity of this prompt vector with the memory vectors and if any are parallelish, we retrieve the memory and it can become part of the input for the model at this point in the conversation.
 

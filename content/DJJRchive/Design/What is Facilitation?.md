@@ -1,3 +1,9 @@
+---
+tags:
+  - workshop
+  - teaching
+  - design-thinking
+---
 # What Is Facilitation?
 ## A Workshop on Facilitation of Workshops
 ##### Dan Ryan January 2024

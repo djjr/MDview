@@ -1,6 +1,7 @@
 ---
 tags:
-  - type/concept
+  - teams
+  - cards
 ---
 It is helpful for teams to develop a "team culture," but it takes time and sometimes doesn't happen because we are in too much of a hurry to get on with the task at hand.  This exercise is a way to jump-start the process.
 

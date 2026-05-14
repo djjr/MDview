@@ -1,9 +1,7 @@
 ---
 tags:
-  - domain/design
-  - domain/teaching
-  - type/concept
-  - status/evergreen
+  - design-thinking
+  - teaching
 ---
 [Google Drawing](https://docs.google.com/drawings/d/1MKxFeM6I1xn4ka5oJoKWvcW_dtWiuamJ6kWEjpOlX8M/edit?usp=sharing)
 

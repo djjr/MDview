@@ -1,9 +1,7 @@
 ---
 tags:
-  - domain/alignment
-  - domain/design
-  - type/concept
-  - status/evergreen
+  - prototype
+  - design-thinking
 ---
 "Prototype" is still a sexy word even if design thinking is a little bit 20teens. This is unfortunate because sexy words get used a lot but often don't carry a whole lot of meaning.
 
