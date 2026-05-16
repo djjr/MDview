@@ -7,4 +7,4 @@ publish: "true"
 
 # qtest2 test
 
-<iframe src="qtest2.html" width="100%" height="500"></iframe>
+<iframe src="./qtest2.html" width="100%" height="500"></iframe>
